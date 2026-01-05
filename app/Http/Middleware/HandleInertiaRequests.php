@@ -33,14 +33,23 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<string, mixed>
      */
-    public function share(Request $request): array
+   public function share(Request $request): array
     {
-      return array_merge(parent::share($request), [
-            // Kirim data Auth User ke semua halaman React
+        return array_merge(parent::share($request), [
+            // Kirim data Auth User
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? [
+                    'user_id' => $request->user()->user_id,
+                    // Di sini kita panggil 'name' yang sudah dijembatani di Model tadi
+                    'name' => $request->user()->name, 
+                    'username' => $request->user()->username,
+                    'email' => $request->user()->email,
+                    'role' => $request->user()->role,
+                    // Ambil inisial untuk Avatar (Opsional, biar backend yang hitung)
+                    'initials' => substr($request->user()->nama_lengkap, 0, 2), 
+                ] : null,
             ],
-            // Kirim Flash Message (untuk notifikasi sukses/gagal nanti)
+            // Kirim Flash Message (Sudah ada sebelumnya)
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

@@ -24,12 +24,10 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // 3. Middleware Group (Hanya user login yang bisa akses)
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
 
     // A. Dashboard Redirector
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard'); // Buat file js/Pages/Dashboard.jsx nanti
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // B. Route Khusus Administrator
     Route::middleware(['role:administrator'])->group(function () {
