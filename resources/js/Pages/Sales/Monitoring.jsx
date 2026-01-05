@@ -1,20 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Head, Link, useForm, usePage } from "@inertiajs/react";
 
 export default function Monitoring({ invoices, filters }) {
     const { flash } = usePage().props;
 
-    // State untuk Modal
+    // State Modal Follow Up (Input)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
 
-    // State untuk Search & Filter
+    // State Modal History (Lihat Detail)
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [historyInvoice, setHistoryInvoice] = useState(null);
+
+    // State Filter & Search
     const { data, setData, get } = useForm({
         search: filters.search || "",
         aging_filter: filters.aging_filter || "all",
+        start_date: filters.start_date || "",
+        end_date: filters.end_date || "",
     });
 
-    // Form Khusus untuk Submit Follow Up
+    // Auto-Submit saat filter berubah (Debounce opsional, tapi ini direct get)
+    const handleFilterChange = (key, value) => {
+        setData(key, value);
+    };
+
+    // Eksekusi Filter saat tombol "Cari" atau Enter ditekan
+    const handleSearch = (e) => {
+        e.preventDefault();
+        get("/sales/monitoring", { preserveState: true });
+    };
+
+    // Form Khusus Submit Follow Up
     const {
         data: formData,
         setData: setFormData,
@@ -24,34 +41,33 @@ export default function Monitoring({ invoices, filters }) {
         errors,
     } = useForm({
         invoice_id: "",
-        status_progress: "janji_bayar", // Default value
+        status_progress: "",
         catatan: "",
     });
 
-    // Fungsi Search Otomatis
-    const handleSearch = (e) => {
-        e.preventDefault();
-        get("/sales/monitoring", { preserveState: true });
-    };
-
-    // Buka Modal
+    // -- LOGIKA MODAL --
     const openModal = (invoice) => {
         setSelectedInvoice(invoice);
-        setFormData({
-            ...formData,
-            invoice_id: invoice.invoice_id,
-        });
+        setFormData({ ...formData, invoice_id: invoice.invoice_id });
         setIsModalOpen(true);
     };
 
-    // Tutup Modal
     const closeModal = () => {
         setIsModalOpen(false);
         reset();
         setSelectedInvoice(null);
     };
 
-    // Submit Follow Up
+    const openHistory = (invoice) => {
+        setHistoryInvoice(invoice);
+        setIsHistoryOpen(true);
+    };
+
+    const closeHistory = () => {
+        setIsHistoryOpen(false);
+        setHistoryInvoice(null);
+    };
+
     const handleSubmitFollowUp = (e) => {
         e.preventDefault();
         post("/sales/follow-up", {
@@ -60,178 +76,316 @@ export default function Monitoring({ invoices, filters }) {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 font-sans">
+        <div className="min-h-screen bg-gray-50 font-sans">
             <Head title="Monitoring Sales" />
 
-            {/* Header */}
-            <div className="bg-blue-900 text-white p-4 shadow-md">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
-                    <Link
-                        href="/dashboard"
-                        className="font-bold hover:text-gray-300"
-                    >
-                        ← Kembali ke Dashboard
-                    </Link>
-                    <span>Monitoring Piutang</span>
+            {/* Navbar Sederhana */}
+            <nav className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm">
+                <div className="flex items-center gap-4">
+                    <img
+                        src="https://upload.wikimedia.org/wikipedia/commons/2/20/Logo_PLN.svg"
+                        alt="PLN Logo"
+                        className="h-10"
+                    />
+                    <div className="border-l pl-4 border-gray-300">
+                        <h1 className="text-xl font-bold text-blue-900">
+                            Monitoring
+                        </h1>
+                    </div>
                 </div>
-            </div>
+                <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-600">
+                        Halo, Sales Staff
+                    </span>
+                    <Link
+                        href="/logout"
+                        method="post"
+                        as="button"
+                        className="text-red-600 font-bold text-sm border border-red-200 px-4 py-1 rounded hover:bg-red-50"
+                    >
+                        Logout
+                    </Link>
+                </div>
+            </nav>
 
-            <div className="max-w-7xl mx-auto py-10 px-4">
-                {/* Flash Message Sukses */}
+            <div className="max-w-7xl mx-auto py-8 px-4">
+                {/* Flash Message */}
                 {flash.success && (
-                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                    <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm flex items-center">
+                        <svg
+                            className="w-5 h-5 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M5 13l4 4L19 7"
+                            ></path>
+                        </svg>
                         {flash.success}
                     </div>
                 )}
 
-                <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    {/* Toolbar: Search & Filter */}
-                    <div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
-                        <h2 className="text-xl font-bold text-gray-800">
-                            Daftar Tagihan Pelanggan
-                        </h2>
+                {/* FILTER SECTION (Sesuai Desain) */}
+                <div className="bg-white p-6 rounded-xl shadow-sm mb-6">
+                    <form
+                        onSubmit={handleSearch}
+                        className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end"
+                    >
+                        {/* Periode Date Picker */}
+                        <div className="md:col-span-4">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                                Periode
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="date"
+                                    value={data.start_date}
+                                    onChange={(e) =>
+                                        handleFilterChange(
+                                            "start_date",
+                                            e.target.value
+                                        )
+                                    }
+                                    className="w-full border-gray-300 rounded-lg text-sm focus:ring-blue-900 focus:border-blue-900"
+                                />
+                                <span className="self-center text-gray-400">
+                                    -
+                                </span>
+                                <input
+                                    type="date"
+                                    value={data.end_date}
+                                    onChange={(e) =>
+                                        handleFilterChange(
+                                            "end_date",
+                                            e.target.value
+                                        )
+                                    }
+                                    className="w-full border-gray-300 rounded-lg text-sm focus:ring-blue-900 focus:border-blue-900"
+                                />
+                            </div>
+                        </div>
 
-                        <form onSubmit={handleSearch} className="flex gap-2">
+                        {/* Aging Filter */}
+                        <div className="md:col-span-3">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                                Aging
+                            </label>
                             <select
                                 value={data.aging_filter}
                                 onChange={(e) =>
-                                    setData("aging_filter", e.target.value)
+                                    handleFilterChange(
+                                        "aging_filter",
+                                        e.target.value
+                                    )
                                 }
-                                className="border-gray-300 rounded-md shadow-sm text-sm"
+                                className="w-full border-gray-300 rounded-lg text-sm focus:ring-blue-900 focus:border-blue-900"
                             >
-                                <option value="all">Semua Status</option>
-                                <option value="0">Lancar</option>
-                                <option value="1">Menunggak 1 Bulan</option>
-                                <option value="2">Menunggak 2 Bulan</option>
-                                <option value="3">Macet (>3 Bulan)</option>
+                                <option value="all">Semua Aging</option>
+                                <option value="0">Aging 0 (Lancar)</option>
+                                <option value="1">Aging 1 Bulan</option>
+                                <option value="2">Aging 2 Bulan</option>
+                                <option value="3">Aging 3+ Bulan</option>
                             </select>
+                        </div>
 
-                            <input
-                                type="text"
-                                value={data.search}
-                                onChange={(e) =>
-                                    setData("search", e.target.value)
-                                }
-                                placeholder="Cari nama pelanggan..."
-                                className="border-gray-300 rounded-md shadow-sm text-sm"
-                            />
+                        {/* Search Bar */}
+                        <div className="md:col-span-4">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                                Cari Pelanggan
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={data.search}
+                                    onChange={(e) =>
+                                        handleFilterChange(
+                                            "search",
+                                            e.target.value
+                                        )
+                                    }
+                                    placeholder="Nama pelanggan, ID pelanggan..."
+                                    className="w-full pl-10 border-gray-300 rounded-lg text-sm focus:ring-blue-900 focus:border-blue-900"
+                                />
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                                    <svg
+                                        className="w-5 h-5"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                        ></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Button Cari */}
+                        <div className="md:col-span-1">
                             <button
                                 type="submit"
-                                className="bg-gray-800 text-white px-4 py-2 rounded-md text-sm"
+                                className="w-full bg-blue-900 hover:bg-blue-800 text-white py-2 px-4 rounded-lg text-sm font-bold transition"
                             >
                                 Cari
                             </button>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
+                </div>
 
-                    {/* TABEL UTAMA */}
+                {/* TABEL UTAMA */}
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                        <table className="min-w-full">
+                            <thead className="bg-white border-b border-gray-100">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                                         Invoice ID
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Pelanggan
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                                        ID Pelanggan
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Total Tagihan
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                                        Nama Pelanggan
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status Aging
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                                        Nilai Tagihan
                                     </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Aksi
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                                        Aging
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                                        Tanggal & Waktu
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-900 uppercase tracking-wider">
+                                        Follow up
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="divide-y divide-gray-50">
                                 {invoices.length > 0 ? (
                                     invoices.map((invoice) => (
-                                        <tr key={invoice.invoice_id}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                                        <tr
+                                            key={invoice.invoice_id}
+                                            className="hover:bg-blue-50 transition duration-150"
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">
                                                 {invoice.invoice_id}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <div className="font-medium text-gray-900">
-                                                    {
-                                                        invoice.customer
-                                                            .nama_pelanggan
-                                                    }
-                                                </div>
-                                                <div className="text-xs text-gray-400">
-                                                    {
-                                                        invoice.customer
-                                                            .customer_id
-                                                    }
-                                                </div>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                {invoice.customer.customer_id}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">
+                                                {
+                                                    invoice.customer
+                                                        .nama_pelanggan
+                                                }
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-medium">
                                                 Rp{" "}
                                                 {new Intl.NumberFormat(
                                                     "id-ID"
                                                 ).format(invoice.total_tagihan)}
                                             </td>
+
+                                            {/* KOLOM AGING - BADGE STYLE BARU */}
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span
-                                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                    className={`px-3 py-1 rounded-full text-xs font-bold border 
                                                 ${
                                                     invoice.aging_category === 0
-                                                        ? "bg-green-100 text-green-800"
-                                                        : invoice.aging_category <
-                                                          3
-                                                        ? "bg-yellow-100 text-yellow-800"
-                                                        : "bg-red-100 text-red-800"
+                                                        ? "bg-green-100 text-green-700 border-green-200"
+                                                        : "bg-red-100 text-red-700 border-red-200"
                                                 }`}
                                                 >
-                                                    {invoice.aging_category ===
-                                                    0
-                                                        ? "Lancar"
-                                                        : `Menunggak ${invoice.aging_category} Bulan`}
+                                                    Aging{" "}
+                                                    {invoice.aging_category}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                {/* LOGIKA TOMBOL (YANG TADI ANDA TANYAKAN) */}
-                                                {invoice.follow_ups &&
-                                                invoice.follow_ups.length >
-                                                    0 ? (
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="bg-gray-200 text-gray-500 px-3 py-1 rounded-md text-xs font-bold cursor-not-allowed">
-                                                            ✅ Sudah Follow Up
+
+                                            {/* KOLOM TANGGAL & WAKTU */}
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {new Date(
+                                                    invoice.created_at
+                                                ).toLocaleString("id-ID", {
+                                                    year: "numeric",
+                                                    month: "2-digit",
+                                                    day: "2-digit",
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                })}
+                                            </td>
+
+                                            {/* KOLOM AKSI (TOMBOL + MATA) */}
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {/* Tombol Status Follow Up */}
+                                                    {invoice.follow_ups &&
+                                                    invoice.follow_ups.length >
+                                                        0 ? (
+                                                        <span className="text-gray-500 text-sm font-medium px-4 py-1.5 bg-gray-100 rounded-lg">
+                                                            Selesai
                                                         </span>
-                                                        <span className="text-[10px] text-gray-400 mt-1">
-                                                            {new Date(
-                                                                invoice.follow_ups[
+                                                    ) : (
+                                                        <button
+                                                            onClick={() =>
+                                                                openModal(
                                                                     invoice
-                                                                        .follow_ups
-                                                                        .length -
-                                                                        1
-                                                                ].created_at
-                                                            ).toLocaleDateString()}
-                                                        </span>
-                                                    </div>
-                                                ) : (
+                                                                )
+                                                            }
+                                                            className="bg-blue-900 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-800 transition shadow-sm"
+                                                        >
+                                                            Follow Up
+                                                        </button>
+                                                    )}
+
+                                                    {/* Tombol Mata (History) - Selalu Muncul */}
                                                     <button
                                                         onClick={() =>
-                                                            openModal(invoice)
+                                                            openHistory(invoice)
                                                         }
-                                                        className="bg-blue-900 text-white px-4 py-2 rounded-md hover:bg-blue-800 transition shadow-sm"
+                                                        className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-full hover:bg-blue-100 transition"
+                                                        title="Lihat Detail History"
                                                     >
-                                                        Follow Up
+                                                        <svg
+                                                            className="w-5 h-5"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                                            ></path>
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                                            ></path>
+                                                        </svg>
                                                     </button>
-                                                )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
                                         <td
-                                            colSpan="5"
-                                            className="px-6 py-10 text-center text-gray-500 italic"
+                                            colSpan="7"
+                                            className="px-6 py-10 text-center text-gray-400 italic bg-gray-50"
                                         >
-                                            Tidak ada data tagihan yang
-                                            ditemukan.
+                                            Data tidak ditemukan untuk filter
+                                            ini.
                                         </td>
                                     </tr>
                                 )}
@@ -241,81 +395,331 @@ export default function Monitoring({ invoices, filters }) {
                 </div>
             </div>
 
-            {/* MODAL FORM FOLLOW UP */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                            Follow Up: {selectedInvoice?.invoice_id}
-                        </h3>
-
-                        <form onSubmit={handleSubmitFollowUp}>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Status Progress
-                                </label>
-                                <select
-                                    value={formData.status_progress}
-                                    onChange={(e) =>
-                                        setFormData(
-                                            "status_progress",
-                                            e.target.value
-                                        )
-                                    }
-                                    className="w-full border-gray-300 rounded-md shadow-sm"
+            {/* --- MODAL 1: FORM INPUT FOLLOW UP --- */}
+            {/* MODAL FOLLOW UP - REVISI SESUAI DESAIN */}
+            {isModalOpen && selectedInvoice && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden transform transition-all scale-100">
+                        {/* 1. Header: Judul */}
+                        <div className="px-8 py-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800 tracking-tight">
+                                FOLLOW UP
+                            </h3>
+                            <button
+                                onClick={closeModal}
+                                className="text-gray-400 hover:text-red-500 transition"
+                            >
+                                <svg
+                                    className="w-6 h-6"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
                                 >
-                                    <option value="janji_bayar">
-                                        Janji Bayar
-                                    </option>
-                                    <option value="minta_reschedule">
-                                        Minta Reschedule
-                                    </option>
-                                    <option value="kendala_teknis">
-                                        Kendala Teknis
-                                    </option>
-                                    <option value="tidak_ada_respon">
-                                        Tidak Ada Respon
-                                    </option>
-                                </select>
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M6 18L18 6M6 6l12 12"
+                                    ></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* 2. Informasi Pelanggan (Layout Baru Sesuai Desain) */}
+                        <div className="px-8 py-6 bg-white">
+                            <div className="flex justify-between items-start mb-6">
+                                <h4 className="font-bold text-gray-900 text-lg uppercase tracking-wide">
+                                    {selectedInvoice.customer.nama_pelanggan}
+                                </h4>
+                                <span
+                                    className={`px-4 py-1 rounded-full text-xs font-bold border 
+                                    ${
+                                        selectedInvoice.aging_category === 0
+                                            ? "bg-green-100 text-green-700 border-green-200"
+                                            : "bg-red-100 text-red-700 border-red-200"
+                                    }`}
+                                >
+                                    Aging {selectedInvoice.aging_category} Bulan
+                                </span>
                             </div>
 
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Catatan
-                                </label>
-                                <textarea
-                                    value={formData.catatan}
-                                    onChange={(e) =>
-                                        setFormData("catatan", e.target.value)
-                                    }
-                                    className="w-full border-gray-300 rounded-md shadow-sm"
-                                    rows="3"
-                                    placeholder="Tulis hasil percakapan..."
-                                ></textarea>
-                                {errors.catatan && (
-                                    <div className="text-red-500 text-xs mt-1">
-                                        {errors.catatan}
+                            {/* GRID INFORMASI 4 KOLOM (ID, Kontrak, Layanan, Tagihan) */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm border-b border-gray-100 pb-6">
+                                <div>
+                                    <span className="block text-gray-400 text-xs font-semibold mb-1">
+                                        ID Pelanggan
+                                    </span>
+                                    <span className="font-medium text-gray-700">
+                                        {selectedInvoice.customer.customer_id}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-gray-400 text-xs font-semibold mb-1">
+                                        Nomor Kontrak
+                                    </span>
+                                    {/* Pastikan kolom 'nomor_kontrak' ada di tabel Customer, atau gunakan placeholder jika belum ada */}
+                                    <span className="font-medium text-gray-700">
+                                        {selectedInvoice.customer
+                                            .nomor_kontrak ||
+                                            "0228334/P1/10205"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-gray-400 text-xs font-semibold mb-1">
+                                        Layanan
+                                    </span>
+                                    <span className="font-medium text-gray-700">
+                                        METRONET
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-gray-400 text-xs font-semibold mb-1">
+                                        Total Tagihan
+                                    </span>
+                                    <span className="font-bold text-gray-900">
+                                        Rp{" "}
+                                        {new Intl.NumberFormat("id-ID").format(
+                                            selectedInvoice.total_tagihan
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Form Input */}
+                        <form
+                            onSubmit={handleSubmitFollowUp}
+                            className="px-8 pb-8 pt-2"
+                        >
+                            <div className="space-y-6">
+                                {/* Status Progress (Update Status) */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-800 mb-2">
+                                        Update Status
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={formData.status_progress}
+                                            onChange={(e) =>
+                                                setFormData(
+                                                    "status_progress",
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 appearance-none bg-white transition text-gray-700"
+                                        >
+                                            {/* OPSI BARU SESUAI GAMBAR */}
+                                            <option value="" disabled>
+                                                Pilih Status...
+                                            </option>
+                                            <option value="verifikasi_user">
+                                                Verifikasi User
+                                            </option>
+                                            <option value="verifikasi_pembayaran">
+                                                Verifikasi Pembayaran
+                                            </option>
+                                            <option value="mapping_cash_in">
+                                                Mapping Cash-in
+                                            </option>
+                                            <option value="surat_peringatan">
+                                                Surat Peringatan / SKO
+                                            </option>
+                                            <option value="surat_hutang">
+                                                Surat Hutang
+                                            </option>
+                                            <option value="isolir">
+                                                Isolir
+                                            </option>
+                                            <option value="deaktivasi">
+                                                Deaktivasi
+                                            </option>
+                                            <option value="pullout">
+                                                Pullout
+                                            </option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-blue-900">
+                                            <svg
+                                                className="w-5 h-5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth="2"
+                                                    d="M19 9l-7 7-7-7"
+                                                ></path>
+                                            </svg>
+                                        </div>
                                     </div>
-                                )}
+                                </div>
+
+                                {/* Catatan */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-800 mb-2">
+                                        Catatan
+                                    </label>
+                                    <textarea
+                                        value={formData.catatan}
+                                        onChange={(e) =>
+                                            setFormData(
+                                                "catatan",
+                                                e.target.value
+                                            )
+                                        }
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm transition placeholder-gray-400"
+                                        rows="4"
+                                        placeholder="Sudah melakukan verifikasi user..."
+                                    ></textarea>
+                                    {errors.catatan && (
+                                        <p className="text-red-500 text-xs mt-1">
+                                            {errors.catatan}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
-                            <div className="flex justify-end space-x-2">
+                            {/* Tombol Simpan */}
+                            <div className="flex justify-end items-center gap-4 mt-8">
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
+                                    className="px-6 py-2.5 rounded-full text-gray-600 border border-gray-300 hover:bg-gray-50 font-medium transition"
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={processing}
-                                    className="bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-800"
+                                    className="px-8 py-2.5 rounded-full text-white bg-blue-900 hover:bg-blue-800 font-bold shadow-lg shadow-blue-900/20 transition transform active:scale-95"
                                 >
                                     {processing ? "Menyimpan..." : "Simpan"}
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL 2: HISTORY (MATA) --- */}
+            {isHistoryOpen && historyInvoice && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden">
+                        <div className="px-8 py-5 border-b bg-gray-50 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-gray-800">
+                                Riwayat Follow Up
+                            </h3>
+                            <button
+                                onClick={closeHistory}
+                                className="text-gray-400 hover:text-red-500"
+                            >
+                                <svg
+                                    className="w-6 h-6"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M6 18L18 6M6 6l12 12"
+                                    ></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="p-8">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h4 className="text-xl font-bold text-blue-900">
+                                        {historyInvoice.customer.nama_pelanggan}
+                                    </h4>
+                                    <p className="text-sm text-gray-500">
+                                        ID:{" "}
+                                        {historyInvoice.customer.customer_id}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm text-gray-500">
+                                        Total Tagihan
+                                    </p>
+                                    <p className="font-bold text-gray-800">
+                                        Rp{" "}
+                                        {new Intl.NumberFormat("id-ID").format(
+                                            historyInvoice.total_tagihan
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* LIST HISTORY */}
+                            <div className="space-y-4">
+                                {historyInvoice.follow_ups &&
+                                historyInvoice.follow_ups.length > 0 ? (
+                                    historyInvoice.follow_ups.map(
+                                        (fu, index) => (
+                                            <div
+                                                key={index}
+                                                className="bg-gray-50 rounded-lg p-4 border border-gray-100"
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded uppercase">
+                                                        {fu.status_progress.replace(
+                                                            /_/g,
+                                                            " "
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">
+                                                        {new Date(
+                                                            fu.created_at
+                                                        ).toLocaleString(
+                                                            "id-ID"
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-700 mb-2">
+                                                    {fu.catatan}
+                                                </p>
+                                                <div className="pt-2 border-t border-gray-200 mt-2 flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full bg-blue-200 flex items-center justify-center text-xs font-bold text-blue-800">
+                                                        {fu.sales_staff
+                                                            ? fu.sales_staff.nama_lengkap.charAt(
+                                                                  0
+                                                              )
+                                                            : "?"}
+                                                    </div>
+                                                    <span className="text-xs text-gray-500">
+                                                        Dikerjakan oleh:{" "}
+                                                        <span className="font-bold text-gray-700">
+                                                            {fu.sales_staff
+                                                                ? fu.sales_staff
+                                                                      .nama_lengkap
+                                                                : "Unknown User"}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )
+                                    )
+                                ) : (
+                                    <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+                                        Belum ada riwayat follow up untuk
+                                        tagihan ini.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="px-8 py-4 bg-gray-50 border-t flex justify-end">
+                            <button
+                                onClick={closeHistory}
+                                className="px-6 py-2 bg-white border border-gray-300 rounded-lg font-medium text-gray-600 hover:bg-gray-100"
+                            >
+                                Tutup
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

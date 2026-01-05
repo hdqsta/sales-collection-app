@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
 
         // 2. Seed Customer (Tetap sama)
         $customer = Customer::create([
-            'customer_id' => 'CUST211090051551',
+            'customer_id' => '211090051551',
             'nama_pelanggan' => 'PT Maju Jaya',
             'alamat' => 'Jl. Jenderal Sudirman No. 10, Palembang',
             'no_telepon' => '08123456789',
@@ -81,7 +81,7 @@ class DatabaseSeeder extends Seeder
         // Sesuai Kamus Data Tabel 4 & Logika Aging
         $invoices = [
             [
-                'invoice_id' => 'INV2500194171',
+                'invoice_id' => '2500194171',
                 'customer_id' => $customer->customer_id,
                 'master_data_id' => $masterData->master_data_id, // Ambil dari MasterData yg baru dibuat
                 'no_invoice' => '001/INV/2024',
@@ -92,7 +92,7 @@ class DatabaseSeeder extends Seeder
                 'status_pembayaran' => 'unpaid'
             ],
             [
-                'invoice_id' => 'INV2500194172',
+                'invoice_id' => '2500194172',
                 'customer_id' => $customer->customer_id,
                 'master_data_id' => $masterData->master_data_id,
                 'no_invoice' => '002/INV/2024',
