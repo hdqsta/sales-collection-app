@@ -317,8 +317,9 @@ export default function Monitoring({ invoices, filters }) {
                                             Aging
                                         </th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
-                                            Tanggal & Waktu
+                                            Tanggal Jatuh Tempo
                                         </th>
+
                                         <th className="px-6 py-4 text-center text-xs font-bold text-gray-900 uppercase tracking-wider">
                                             Follow up
                                         </th>
@@ -358,28 +359,55 @@ export default function Monitoring({ invoices, filters }) {
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span
                                                         className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                                                            invoice.aging_category ===
-                                                            "Lancar"
-                                                                ? "bg-emerald-100 text-emerald-700 border-emerald-200" // Hijau (Aman)
-                                                                : invoice.aging_category ===
-                                                                  0
-                                                                ? "bg-blue-100 text-blue-700 border-blue-200" // Biru (Baru Lewat)
-                                                                : invoice.aging_category ===
-                                                                  1
-                                                                ? "bg-yellow-100 text-yellow-700 border-yellow-200" // Kuning (Waspada)
-                                                                : invoice.aging_category ===
-                                                                  2
-                                                                ? "bg-orange-100 text-orange-700 border-orange-200" // Oranye (Signifikan)
-                                                                : invoice.aging_category ===
-                                                                  3
-                                                                ? "bg-red-100 text-red-700 border-red-200" // Merah (Risiko Tinggi)
-                                                                : "bg-red-900 text-white border-red-900" // Merah Gelap (Aging 4 - Bahaya)
+                                                            // 1. Cek Lunas / Ditolak dulu (Prioritas Tertinggi)
+                                                            String(
+                                                                invoice.aging_category
+                                                            ) === "Lunas"
+                                                                ? "bg-green-500 text-white border-green-600" // Lunas: Hijau Solid
+                                                                : String(
+                                                                      invoice.aging_category
+                                                                  ) ===
+                                                                  "Ditolak"
+                                                                ? "bg-red-500 text-white border-red-600" // Ditolak: Merah Solid
+                                                                : // 2. Cek Lancar
+                                                                String(
+                                                                      invoice.aging_category
+                                                                  ) === "Lancar"
+                                                                ? "bg-emerald-100 text-emerald-700 border-emerald-200" // Lancar: Hijau Muda (Emerald)
+                                                                : // 3. Cek Aging Levels
+                                                                String(
+                                                                      invoice.aging_category
+                                                                  ) === "0"
+                                                                ? "bg-blue-100 text-blue-700 border-blue-200" // Aging 0: Biru
+                                                                : String(
+                                                                      invoice.aging_category
+                                                                  ) === "1"
+                                                                ? "bg-yellow-100 text-yellow-700 border-yellow-200" // Aging 1: Kuning
+                                                                : String(
+                                                                      invoice.aging_category
+                                                                  ) === "2"
+                                                                ? "bg-orange-100 text-orange-700 border-orange-200" // Aging 2: Oranye
+                                                                : String(
+                                                                      invoice.aging_category
+                                                                  ) === "3"
+                                                                ? "bg-red-100 text-red-700 border-red-200" // Aging 3: Merah Muda
+                                                                : "bg-red-900 text-white border-red-900" // Aging 4 (>120 hari): Merah Gelap
                                                         }`}
                                                     >
-                                                        {invoice.aging_category ===
-                                                        "Lancar"
-                                                            ? "Lancar"
-                                                            : `Aging ${invoice.aging_category}`}
+                                                        {/* Logika Label Text */}
+                                                        {[
+                                                            "0",
+                                                            "1",
+                                                            "2",
+                                                            "3",
+                                                            "4",
+                                                        ].includes(
+                                                            String(
+                                                                invoice.aging_category
+                                                            )
+                                                        )
+                                                            ? `Aging ${invoice.aging_category}`
+                                                            : invoice.aging_category}
                                                     </span>
                                                     {/* Opsional: Tampilkan hari terlambat */}
                                                     {invoice.days_overdue >
@@ -394,13 +422,11 @@ export default function Monitoring({ invoices, filters }) {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                     {new Date(
-                                                        invoice.created_at
+                                                        invoice.tanggal_jatuh_tempo
                                                     ).toLocaleString("id-ID", {
                                                         year: "numeric",
                                                         month: "2-digit",
                                                         day: "2-digit",
-                                                        hour: "2-digit",
-                                                        minute: "2-digit",
                                                     })}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">

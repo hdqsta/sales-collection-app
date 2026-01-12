@@ -13,11 +13,9 @@ class CollectionLetter extends Model
 
     protected $guarded = [];
 
-    // --- TAMBAHKAN BAGIAN INI ---
+    // Relasi ke Invoice (Opsional, buat jaga-jaga)
     public function invoice()
     {
-        // Relasi: CollectionLetter milik satu Invoice
-        // Parameter: (Model Tujuan, Foreign Key di tabel ini, Primary Key di tabel tujuan)
         return $this->belongsTo(Invoice::class, 'invoice_id', 'invoice_id');
     }
 }
